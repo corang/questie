@@ -592,6 +592,11 @@ function QuestieCompat.GetQuestsCompleted()
         Questie.db.char.complete = {}
     end
 
+    -- On custom servers (e.g. hardcore-style resets) quests can become "uncompleted".
+    -- Since the result of QueryQuestsCompleted() is asynchronous, clear the cache up front
+    -- so we don't temporarily treat stale completions as truth.
+    wipe(Questie.db.char.complete)
+
     QueryQuestsCompleted()
     return Questie.db.char.complete
 end
@@ -599,6 +604,15 @@ end
 -- Fires when the data requested by QueryQuestsCompleted() is available.
 -- https://wowpedia.fandom.com/wiki/QUEST_QUERY_COMPLETE
 function QuestieCompat:QUEST_QUERY_COMPLETE(event)
+    -- IMPORTANT: Blizzard's GetQuestsCompleted(table) only ever sets keys to true.
+    -- If quests become "uncompleted" (e.g. custom hardcore servers resetting quest progress),
+    -- stale keys would otherwise remain forever. So we must clear before repopulating.
+    if Questie.db.char.complete then
+        wipe(Questie.db.char.complete)
+    else
+        Questie.db.char.complete = {}
+    end
+
     GetQuestsCompleted(Questie.db.char.complete)
 
     for questId in pairs(Questie.db.char.complete) do
@@ -1490,7 +1504,7 @@ QuestieCompat.PLAYER_LOGIN = QuestieCompat.ToggleQuestTrackingTooltips
 function QuestieCompat:PLAYER_LOGOUT(event)
 	if not QuestieCompat.isReloadingUi then
 		QuestieCompat:ToggleQuestTrackingTooltips(event)
-		
+
 		Questie.db.profile.isInitialLogin = true
 	end
 end
@@ -1552,7 +1566,7 @@ function QuestieCompat.QuestieOptions_Initialize()
         order = 6,
         name = "3.3.5 Compatibility Settings",
     }
-	
+
 	optionsTable.args.advanced_tab.args.initDelay = {
         type = "range",
         order = 6.1,
@@ -1582,7 +1596,7 @@ function QuestieCompat.QuestieOptions_Initialize()
             StaticPopup_Show("QUESTIE_RELOAD")
         end,
     }
-	
+
 	optionsTable.args.advanced_tab.args.useQuestieLinks = {
         type = "toggle",
         order = 6.3,
@@ -1704,14 +1718,14 @@ function QuestieCompat:ADDON_LOADED(event, addon)
     for name, path in pairs(townsfolk_texturemap) do
         QuestieMenu.private.townsfolk_texturemap[name] = path
     end
-	
+
 	local DISABLED_MODULES = {
         "HBDHooks",
         "QuestieDebugOffer",
         "SeasonOfDiscovery",
         "QuestieDBMIntegration"
     }
-	
+
 	if not Questie.db.profile.useQuestieLinks then
 		table.insert(DISABLED_MODULES, "ChatFilter")
 		table.insert(DISABLED_MODULES, "Hooks")

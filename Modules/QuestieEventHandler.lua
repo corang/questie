@@ -63,6 +63,8 @@ end
 
 function QuestieEventHandler:RegisterLateEvents()
     Questie:RegisterEvent("PLAYER_LEVEL_UP", _EventHandler.PlayerLevelUp)
+    Questie:RegisterEvent("UNIT_LEVEL", _EventHandler.UnitLevel)
+    Questie:RegisterEvent("PLAYER_DEAD", _EventHandler.PlayerDead)
     Questie:RegisterEvent("PLAYER_REGEN_DISABLED", _EventHandler.PlayerRegenDisabled)
     Questie:RegisterEvent("PLAYER_REGEN_ENABLED", _EventHandler.PlayerRegenEnabled)
 
@@ -74,6 +76,7 @@ function QuestieEventHandler:RegisterLateEvents()
     Questie:RegisterEvent("PLAYER_ALIVE", function(...)
         QuestieTracker:UpdateDurabilityFrame()
         QuestieTracker:UpdateVoiceOverFrame()
+        _EventHandler:HardcoreLevelResetCheck("PLAYER_ALIVE")
     end)
 
     -- Events to update a players professions and reputations
@@ -337,6 +340,12 @@ function _EventHandler:PlayerLevelUp(level)
 
     QuestiePlayer:SetPlayerLevel(level)
 
+    -- Persist highest known level for hardcore-style level reset detection.
+    local lastKnownLevel = Questie.db.char.lastKnownPlayerLevel or 0
+    if level and level > lastKnownLevel then
+        Questie.db.char.lastKnownPlayerLevel = level
+    end
+
     -- deferred update (possible desync fix?)
     C_Timer.After(3, function()
         QuestiePlayer:SetPlayerLevel(level)
@@ -345,6 +354,51 @@ function _EventHandler:PlayerLevelUp(level)
     end)
 
     QuestieJourney:PlayerLevelUp(level)
+end
+
+--- Custom hardcore servers may reset the *same character* back to level 1.
+--- This helper detects that and refreshes Questie's quest completion/cache state.
+---@param source string
+function _EventHandler:HardcoreLevelResetCheck(source)
+    if not Questie.started then
+        return
+    end
+
+    local currentLevel = UnitLevel("player")
+    if not currentLevel then
+        return
+    end
+
+    local lastKnownLevel = Questie.db.char.lastKnownPlayerLevel or currentLevel
+
+    if lastKnownLevel > 1 and currentLevel == 1 then
+        Questie.db.char.lastKnownPlayerLevel = 1
+        Questie:Print("Detected level reset to 1; resetting Questie quest cache...")
+        QuestieQuest:SmoothReset()
+        return
+    end
+
+    if currentLevel > lastKnownLevel then
+        Questie.db.char.lastKnownPlayerLevel = currentLevel
+    end
+end
+
+--- Fires when the player dies (useful for some custom servers that level-down on release)
+function _EventHandler:PlayerDead()
+    -- Give the server a moment to apply any instant level/teleport changes.
+    C_Timer.After(0.5, function()
+        _EventHandler:HardcoreLevelResetCheck("PLAYER_DEAD")
+    end)
+end
+
+--- Fires when a unit's level changes (can be down on some custom servers)
+---@param unit string
+function _EventHandler:UnitLevel(unit)
+    if unit ~= "player" then
+        return
+    end
+
+    _EventHandler:HardcoreLevelResetCheck("UNIT_LEVEL")
 end
 
 --- Fires when a modifier key changed

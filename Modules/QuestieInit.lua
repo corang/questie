@@ -338,6 +338,20 @@ QuestieInit.Stages[3] = function() -- run as a coroutine
 
     Questie.started = true
 
+    -- Hardcore-style servers may reset the same character back to level 1.
+    -- Detect that case and reset Questie's quest completion/cache once everything is initialized.
+    do
+        local currentLevel = UnitLevel("player")
+        local lastKnownLevel = Questie.db.char.lastKnownPlayerLevel
+        if lastKnownLevel and lastKnownLevel > 1 and currentLevel == 1 then
+            Questie.db.char.lastKnownPlayerLevel = 1
+            Questie:Print("Detected level reset to 1; resetting Questie quest cache...")
+            QuestieQuest:SmoothReset()
+        else
+            Questie.db.char.lastKnownPlayerLevel = math.max(lastKnownLevel or 0, currentLevel)
+        end
+    end
+
     if (Questie.IsWotlk or Questie.IsTBC) and QuestiePlayer.IsMaxLevel() then
         local lastRequestWasYesterday = Questie.db.global.lastDailyRequestDate ~= date("%d-%m-%y"); -- Yesterday or some day before
         local isPastDailyReset = Questie.db.global.lastDailyRequestResetTime < GetQuestResetTime();
