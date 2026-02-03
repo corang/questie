@@ -427,6 +427,18 @@ function QuestieCompat.GetQuestLogTitle(questLogIndex)
     local questTitle, level, questTag, suggestedGroup, isHeader, isCollapsed,
         isComplete, isDaily, questID = GetQuestLogTitle(questLogIndex);
 
+    -- Some private servers can create a malformed quest log where a slot inside the valid range
+    -- returns nil (often for custom quests). Many Questie scanners interpret nil title as end-of-log
+    -- and stop processing entirely, which breaks icons/tracking for all other quests.
+    -- If this happens inside the range returned by GetNumQuestLogEntries(), return a harmless header
+    -- placeholder so Questie continues scanning.
+    if (not questTitle) then
+        local numEntries = select(1, GetNumQuestLogEntries())
+        if numEntries and questLogIndex <= numEntries then
+            return "", 0, 0, true, true, nil, 1, 0
+        end
+    end
+
     if (isComplete == nil) then
         local numObjectives = GetNumQuestLeaderBoards(questLogIndex);
         local requiredMoney = GetQuestLogRequiredMoney(questLogIndex);
@@ -436,17 +448,19 @@ function QuestieCompat.GetQuestLogTitle(questLogIndex)
 end
 
 local MAX_QUEST_LOG_INDEX = 75
+local GetNumQuestLogEntries = GetNumQuestLogEntries
 -- Returns the current quest log index of a quest by its ID.
 -- https://wowpedia.fandom.com/wiki/API_GetQuestLogIndexByID
 function QuestieCompat.GetQuestLogIndexByID(questId)
-    for questLogIndex = 1, MAX_QUEST_LOG_INDEX do
+    local numEntries = select(1, GetNumQuestLogEntries())
+    local maxIndex = math.min(numEntries or MAX_QUEST_LOG_INDEX, MAX_QUEST_LOG_INDEX)
+    for questLogIndex = 1, maxIndex do
         local title, _, _, _, isHeader, _, _, _, id = GetQuestLogTitle(questLogIndex)
-        if (not title) then
-            break -- We exceeded the valid quest log entries
-        end
-        if (not isHeader) then
-            if (questId == id) then
-                return questLogIndex
+        if title then
+            if (not isHeader) then
+                if (questId == id) then
+                    return questLogIndex
+                end
             end
         end
     end
@@ -708,14 +722,15 @@ function QuestieCompat.GetQuestID(questStarter, title)
 end
 
 function QuestieCompat.GetQuestIDFromName(questTitle)
-    for questLogIndex = 1, MAX_QUEST_LOG_INDEX do
+    local numEntries = select(1, GetNumQuestLogEntries())
+    local maxIndex = math.min(numEntries or MAX_QUEST_LOG_INDEX, MAX_QUEST_LOG_INDEX)
+    for questLogIndex = 1, maxIndex do
         local title, _, _, _, isHeader, _, _, _, id = GetQuestLogTitle(questLogIndex)
-        if (not title) then
-            break -- We exceeded the valid quest log entries
-        end
-        if (not isHeader) then
-            if (questTitle == title) then
-                return id
+        if title then
+            if (not isHeader) then
+                if (questTitle == title) then
+                    return id
+                end
             end
         end
     end

@@ -85,14 +85,11 @@ function QuestEventHandler:RegisterEvents()
                 deletedQuestItem = false
             end
 
-            for questLogIndex = 1, 75 do
+            local numEntries = select(1, GetNumQuestLogEntries())
+            for questLogIndex = 1, math.min(numEntries or 75, 75) do
                 local title, _, _, isHeader, _, _, _, questId = GetQuestLogTitle(questLogIndex)
 
-                if (not title) then
-                    break
-                end
-
-                if (not isHeader) then
+                if title and (not isHeader) then
                     quest = QuestieDB.GetQuest(questId)
 
                     if quest then
@@ -368,11 +365,19 @@ end
 function _QuestEventHandler:QuestLogUpdate()
     Questie:Debug(Questie.DEBUG_DEVELOP, "[Quest Event] QUEST_LOG_UPDATE")
 
-    local continueQueuing = true
-    -- Some of the other quest event didn't have the required information and ordered to wait for the next QLU.
-    -- We are now calling the function which the event added.
-    while continueQueuing and next(questLogUpdateQueue) do
-        continueQueuing = _QuestLogUpdateQueue:GetFirst()()
+    -- Some quest event handlers may need to retry at next QUEST_LOG_UPDATE if the client cache isn't ready.
+    -- On some private servers a single broken/custom quest can *never* reach a valid cached state; in that
+    -- case we must not let its retry callback block processing of other queued callbacks.
+    local callbacksToProcess = #questLogUpdateQueue
+    for _ = 1, callbacksToProcess do
+        if not next(questLogUpdateQueue) then
+            break
+        end
+
+        local callback = _QuestLogUpdateQueue:GetFirst()
+        if callback then
+            callback()
+        end
     end
 
     if doFullQuestLogScan then

@@ -1069,17 +1069,16 @@ function TrackerUtils:UpdateVoiceOverPlayButtons()
             Questie:Debug(Questie.DEBUG_INFO, "[TrackerUtils:UpdateVoiceOverPlayButtons]")
         end
 
-        for i = 1, 75 do
+        local numEntries = select(1, GetNumQuestLogEntries())
+        for i = 1, math.min(numEntries or 75, 75) do
             local title, _, _, isHeader, _, _, _, questId = GetQuestLogTitle(i)
 
-            if not (title and questId) then
-                break
-            end
-
-            if not isHeader then
-                if not VoiceOver.QuestOverlayUI.questPlayButtons[questId] then
-                    VoiceOver.QuestOverlayUI:CreatePlayButton(questId)
-                    table.insert(VoiceOver.QuestOverlayUI.displayedButtons, VoiceOver.QuestOverlayUI.questPlayButtons[questId])
+            if title and questId then
+                if not isHeader then
+                    if not VoiceOver.QuestOverlayUI.questPlayButtons[questId] then
+                        VoiceOver.QuestOverlayUI:CreatePlayButton(questId)
+                        table.insert(VoiceOver.QuestOverlayUI.displayedButtons, VoiceOver.QuestOverlayUI.questPlayButtons[questId])
+                    end
                 end
             end
         end

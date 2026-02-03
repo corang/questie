@@ -36,6 +36,10 @@ local checkStarted = false
 local isCacheGood = false
 local callbacks = {} -- example: { [1] = {func, {arg1, arg2, arg3}}, [2] = {func, {arg1, arg2}}, }
 
+-- Some private servers can provide malformed quest log data (e.g. C_QuestLog.GetQuestObjectives
+-- returning nil/non-table for custom quests). Those quests must not block Questie from loading.
+local brokenQuestIds = {}
+
 ---@return boolean
 function QuestieValidateGameCache.IsCacheGood()
     return isCacheGood
@@ -78,39 +82,49 @@ local function OnQuestLogUpdate()
 
     local isQuestLogGood = true
     local goodQuestsCount = 0 -- for debug stats
+    local brokenEntriesCount = 0 -- for nil-title slots inside the quest log range
 
-    for i = 1, MAX_QUEST_LOG_INDEX do
+    -- Reset broken quest list on each pass; we only use this for current cache validation state.
+    brokenQuestIds = {}
+
+    local maxIndex = math.min(numEntries or MAX_QUEST_LOG_INDEX, MAX_QUEST_LOG_INDEX)
+    for i = 1, maxIndex do
         local title, _, _, isHeader, _, _, _, questId = GetQuestLogTitle(i)
         if (not title) then
-            break -- We exceeded the data in the quest log
-        end
-        if (not isHeader) then
-            if (not HaveQuestData(questId)) then
-                isQuestLogGood = false
-            else
-                local hasInvalidObjective -- for debug stats
-                local objectiveList = GetQuestObjectives(questId, i)
+            -- Some private servers can create malformed quest log entries where a slot inside
+            -- the valid range returns nil. Do not stop scanning early; just skip the slot.
+            brokenEntriesCount = brokenEntriesCount + 1
+            isQuestLogGood = false -- still indicates the cache isn't fully sane
+        else
+            if (not isHeader) then
+                if (not HaveQuestData(questId)) then
+                    isQuestLogGood = false
+                else
+                    local hasInvalidObjective -- for debug stats
+                    local objectiveList = GetQuestObjectives(questId, i)
 
-                if type(objectiveList) ~= "table" then
-                    -- I couldn't find yet a quest returning nil like older code suggested for example for quest 2744, which isn't true.
-                    -- I guess older code queried data before HaveQuestData() was true.
-                    Questie:Error("REPORT THIS ERROR! Quest objectives aren't a table. This may stop Questie from loading. questId =", questId)
-                    hasInvalidObjective = true
-                    objectiveList = {}
-                end
-
-                for _, objective in pairs(objectiveList) do -- objectiveList may be {}, which is also a valid cached quest in quest log
-                    if (not objective.text) or (stringByte(objective.text, 1) == 32) then -- if (text starts with a space " ") then
-                        -- Game hasn't cached the quest fully yet
-                        isQuestLogGood = false
+                    if type(objectiveList) ~= "table" then
+                        -- Some servers return malformed quest objective data for custom quests.
+                        -- Do not let a single broken quest block Questie from loading/tracking other quests.
+                        Questie:Warning("Quest objectives aren't a table. Ignoring this quest for cache validation. questId =", questId)
+                        brokenQuestIds[questId] = true
                         hasInvalidObjective = true
-
-                        -- No early "return false" here to force iterate whole quest log and speed up caching
+                        objectiveList = {}
                     end
-                end
 
-                if not hasInvalidObjective then
-                    goodQuestsCount = goodQuestsCount + 1
+                    for _, objective in pairs(objectiveList) do -- objectiveList may be {}, which is also a valid cached quest in quest log
+                        if (not objective.text) or (stringByte(objective.text, 1) == 32) then -- if (text starts with a space " ") then
+                            -- Game hasn't cached the quest fully yet
+                            isQuestLogGood = false
+                            hasInvalidObjective = true
+
+                            -- No early "return false" here to force iterate whole quest log and speed up caching
+                        end
+                    end
+
+                    if not hasInvalidObjective then
+                        goodQuestsCount = goodQuestsCount + 1
+                    end
                 end
             end
         end
@@ -121,11 +135,14 @@ local function OnQuestLogUpdate()
         return
     end
 
-    if goodQuestsCount ~= numQuests then
-        -- This shouldn't be possible
+    local brokenCount = 0
+    for _ in pairs(brokenQuestIds) do
+        brokenCount = brokenCount + 1
+    end
 
-        Questie:Error("Game Cache has still a broken quest log. Good quest: "..goodQuestsCount.."/"..numQuests..". Please report this on Github or Discord!") -- Translations might not be available yet.
-        -- TODO should we stop whole addon loading progress?
+    if brokenEntriesCount > 0 or brokenCount > 0 then
+        -- Continue initialization even with broken entries/quests; this is common with custom quests on private servers.
+        Questie:Warning("Quest log contains broken entries. Questie will continue, but the broken quest(s) may not be tracked. Good quest: "..goodQuestsCount.."/"..numQuests..". Broken quests: "..brokenCount..". Broken entries: "..brokenEntriesCount..".")
     end
 
     DestroyEventFrame()

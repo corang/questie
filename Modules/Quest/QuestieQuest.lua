@@ -288,12 +288,30 @@ function QuestieQuest:SmoothReset()
     QuestieQuest._isResetting = true
     QuestieQuest._resetNeedsAvailables = false
 
+    -- Some private servers can create quests which never reach a fully valid cached state in the client's quest log.
+    -- Waiting forever here would effectively disable all icons/tracking until the player abandons the broken quest.
+    local cacheWaitStart = GetTime()
+    local cacheWaitTimeout = 3
+    local cacheWaitWarned = false
+
     -- bit of a hack (there has to be a better way to do logic like this
     QuestieDBMIntegration:ClearAll()
     local stepTable = {
         function()
             -- Wait until game cache has quest log okay.
-            return QuestLogCache.TestGameCache()
+            if QuestLogCache.TestGameCache() then
+                return true
+            end
+
+            if (GetTime() - cacheWaitStart) >= cacheWaitTimeout then
+                if not cacheWaitWarned then
+                    Questie:Warning("Timeout waiting for Game Cache validation during reset. Continuing; broken quest(s) may not be tracked.")
+                    cacheWaitWarned = true
+                end
+                return true
+            end
+
+            return false
         end,
         function()
             return #QuestieMap._mapDrawQueue == 0 and #QuestieMap._minimapDrawQueue == 0 -- wait until draw queue is finished
