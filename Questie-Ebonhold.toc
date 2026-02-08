@@ -1,19 +1,19 @@
 ## Interface: 30300
-## Title: Questie-335-TBC|cFF00FF00 v9.5.1|r
+## Title: Questie-Ebonhold|cFF00FF00 v9.5.1|r
 ## Author: Aero/Logon/Muehe/TheCrux(BreakBB)/Drejjmit/Dyaxler/Schaka/Zoey/Everyone else
-## Notes: A standalone Classic QuestHelper
+## Notes: A standalone Classic QuestHelper For Ebonhold
 ## Notes-esMX: Ayundante de misión
 ## Notes-esES: Ayundante de misión
 ## Notes-ptBR: Ajudante de missão
 ## Notes-frFR: Assistant de quête
-## Version: 9.5.1
+## Version: 9.5.1-ebonhold.0
 ## RequiredDeps:
 ## OptionalDeps: Ace3, CallbackHandler-1.0, HereBeDragons, LibDataBroker-1.1, LibDBIcon-1.0, LibSharedMedia-3.0, LibStub, LibUIDropDownMenu
 ## SavedVariables: QuestieConfig
 ## SavedVariablesPerCharacter: QuestieConfigCharacter
 ## X-Curse-Project-ID: 334372
 ## X-Wago-ID: qv634BKb
-## X-WOW_PROJECT_ID: 5
+## X-WOW_PROJECT_ID: 11
 
 # Loader module
 Modules\Libs\QuestieLoader.lua
@@ -31,7 +31,7 @@ Modules\Libs\MessageHandler.lua
 
 #Quest XP
 Database\QuestXP\QuestieXP.lua
-Database\QuestXP\DB\xpDB-tbc.lua
+Database\QuestXP\DB\xpDB-wotlk.lua
 
 # stream module (used by DB)
 Modules\QuestieStream.lua
@@ -41,10 +41,10 @@ Database\Zones\zoneTables.lua
 Database\Zones\zoneDB.lua
 
 # Databases
-Database\TBC\tbcItemDB.lua
-Database\TBC\tbcNpcDB.lua
-Database\TBC\tbcObjectDB.lua
-Database\TBC\tbcQuestDB.lua
+Database\Wotlk\wotlkItemDB.lua
+Database\Wotlk\wotlkNpcDB.lua
+Database\Wotlk\wotlkObjectDB.lua
+Database\Wotlk\wotlkQuestDB.lua
 Database\QuestieDB.lua
 Database\questDB.lua
 Database\objectDB.lua
@@ -78,6 +78,12 @@ Database\Corrections\tbcNPCFixes.lua
 Database\Corrections\tbcItemFixes.lua
 Database\Corrections\tbcObjectFixes.lua
 
+# Wotlk Corrections
+Database\Corrections\wotlkQuestFixes.lua
+Database\Corrections\wotlkNPCFixes.lua
+Database\Corrections\wotlkItemFixes.lua
+Database\Corrections\wotlkObjectFixes.lua
+
 # Compiler
 Database\compiler.lua
 
@@ -87,10 +93,10 @@ Localization\Translations\Translations.xml
 
 Localization\lookups\lookupQuestCategories.lua
 Localization\lookups\lookupZones.lua
-Localization\lookups\TBC\lookupItems\lookupItems.xml
-Localization\lookups\TBC\lookupNpcs\lookupNpcs.xml
-Localization\lookups\TBC\lookupObjects\lookupObjects.xml
-Localization\lookups\TBC\lookupQuests\lookupQuests.xml
+Localization\lookups\Wotlk\lookupItems\lookupItems.xml
+Localization\lookups\Wotlk\lookupNpcs\lookupNpcs.xml
+Localization\lookups\Wotlk\lookupObjects\lookupObjects.xml
+Localization\lookups\Wotlk\lookupQuests\lookupQuests.xml
 
 # Libs
 Modules\Libs\QuestieLib.lua
